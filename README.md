@@ -117,5 +117,5 @@ This project is licensed under the MIT License – see LICENSE for details.
 🙋‍♀️ Contact
 Hasti Vakani – hasti.vakani9104@gmail.com
 
-Enjoy exploring, reproducing, or extending the obesity-predictor! 🎉
+Enjoy exploring, reproducing, or extending the obesity-predictor! 
 

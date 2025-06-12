@@ -1,13 +1,3 @@
-<<<<<<< HEAD
-# React + Vite
-
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-=======
 # obesity-predictor
 This project presents a comprehensive machine learning pipeline designed for predicting obesity levels based on lifestyle, demographic, and biometric data. Built with reproducibility in mind, this pipeline leverages advanced stacking ensemble techniques to combine the power of multiple machine learning models for enhanced prediction accuracy. The approach is derived from, and extends, the methodology presented in our peer-reviewed paper:
 
@@ -127,5 +117,3 @@ This project is licensed under the MIT License – see LICENSE for details.
 Hasti Vakani – hasti.vakani9104@gmail.com
 
 Enjoy exploring, reproducing, or extending the obesity-predictor! 🎉
-
->>>>>>> 8d2ee6fd053cbec611f087ad4b9f538681871224

@@ -1,7 +1,7 @@
-# obesity-predictor
-This project presents a comprehensive machine learning pipeline designed for predicting obesity levels based on lifestyle, demographic, and biometric data. Built with reproducibility in mind, this pipeline leverages advanced stacking ensemble techniques to combine the power of multiple machine learning models for enhanced prediction accuracy. The approach is derived from, and extends, the methodology presented in our peer-reviewed paper:
+# Adiposity-predictor
+This project presents a comprehensive machine learning pipeline designed for predicting adiposity levels based on lifestyle, demographic, and biometric data. Built with reproducibility in mind, this pipeline leverages advanced stacking ensemble techniques to combine the power of multiple machine learning models for enhanced prediction accuracy. The approach is derived from, and extends, the methodology presented in our peer-reviewed paper:
 
->Vakani, H., Hardik Jayswal, et al. (2025). Obesity Level Prediction Using Machine Learning Stacking Ensembles.
+>Vakani, H., Hardik Jayswal, et al. (2025). Adiposity Level Prediction Using Machine Learning Stacking Ensembles.
 >The model demonstrates a remarkable accuracy of 96.7%, validated on a unique blended dataset incorporating both CDC and Colombia-Mexico-Peru data, ensuring robustness and generalizability across diverse populations. This work sets a foundation for further exploration and improvement in the field of health data science, providing a powerful tool for predictive health modeling.
 
 
@@ -13,13 +13,13 @@ This project presents a comprehensive machine learning pipeline designed for pre
 | **/notebooks** | End-to-end Jupyter workflow: EDA → preprocessing → model training & evaluation |
 | **/src/data** | Cleaners, transformers, one-hot encoders, SMOTE balancing |
 | **/src/models** | • Stacking ensemble (RF + GBM + SVM + LogReg) <br>• RNN baseline for sequential data <br>• Optuna hyper-parameter search |
-| **predict.py** | CLI entry point – load a CSV or single JSON row and return predicted obesity class |
+| **predict.py** | CLI entry point – load a CSV or single JSON row and return predicted adiposity class |
 | **/reports** | Automatically generated confusion matrices, ROC curves, and SHAP plots |
 
 ---
 
 ## 🗂️ Project structure
-obesity-predictor/
+Adiposity-predictor/
 ├── data/ # raw & interim datasets (git-ignored)
 ├── notebooks/ # Jupyter notebooks (EDA, training, …)
 ├── src/
@@ -39,8 +39,8 @@ Edit
 ## 📦 Installation
 ```bash
 # 1) clone the repo
-git clone https://github.com/hasti0044/obesity-predictor.git
-cd obesity-predictor
+git clone https://github.com/hasti0044/adiposity-predictor.git
+cd adiposity-predictor
 
 # 2) create a virtual environment (recommended)
 python -m venv .venv
@@ -91,13 +91,11 @@ Once the paper is published, we will update the citation here. Thank you for you
 If you use this code or dataset, please cite:
 
 ```bibtex
-@inproceedings{Vakani2025Obesity,
-  title   = {Obesity Level Prediction Using Machine Learning Stacking Ensembles},
+@inproceedings{Vakani2025Oadiposity,
+  title   = {Adiposity Level Prediction Using Machine Learning Stacking Ensembles},
   author  = {Hasti Vakani, Mithil Mistry, Hardik Jayswal, et al.},
-  booktitle = {Proceedings of the 10th International Conference on Information Technology and Computer Science (ICTCS 2025)},
   year    = {2025},
   pages   = {Will be updated after publication},  # Add the specific page range once available
-  publisher = {10th International Conference on Information Technology and Computer Science (ICTCS 2025)},  # Replace with actual publisher name
 
 }
 ```
@@ -116,4 +114,4 @@ This project is licensed under the MIT License – see LICENSE for details.
 🙋‍♀️ Contact
 Hasti Vakani – hasti.vakani9104@gmail.com
 
-Enjoy exploring, reproducing, or extending the obesity-predictor! 🎉
+Enjoy exploring, reproducing, or extending the adiposity-predictor! 🎉

@@ -1,117 +1,140 @@
-# Adiposity-predictor
-This project presents a comprehensive machine learning pipeline designed for predicting adiposity levels based on lifestyle, demographic, and biometric data. Built with reproducibility in mind, this pipeline leverages advanced stacking ensemble techniques to combine the power of multiple machine learning models for enhanced prediction accuracy. The approach is derived from, and extends, the methodology presented in our peer-reviewed paper:
+Introduction
 
->Vakani, H., Hardik Jayswal, et al. (2025). Adiposity Level Prediction Using Machine Learning Stacking Ensembles.
->The model demonstrates a remarkable accuracy of 96.7%, validated on a unique blended dataset incorporating both CDC and Colombia-Mexico-Peru data, ensuring robustness and generalizability across diverse populations. This work sets a foundation for further exploration and improvement in the field of health data science, providing a powerful tool for predictive health modeling.
+Conventional single-model approaches to adiposity classification often struggle with class imbalance and non-linear interactions across lifestyle variables. APACS (Adiposity Prediction via ANN-plus Ansamble Classifiers Stack) addresses these gaps with a stacking ensemble that blends Artificial Neural Networks (ANN), Logistic Regression (LR), and Gradient Boosting (GB). The pipeline adds dense one-hot encoding, PolynomialFeatures (degree = 2), standardization, optional mutual-information feature selection, and SMOTE class balancing. It’s Colab-friendly and includes detailed logs so you can see exactly what runs and how long each step takes.
 
+Key Features
 
----
+• Hybrid Stacking (APACS): Base learners = ANN, LR, GB → LR meta-learner with passthrough=True.
+• Robust Preprocessing: Dense One-Hot for categoricals; Poly(2) + StandardScaler for numerics.
+• Class Balancing: SMOTE after (optional) selection; recommended k=3 or k=5 for the 7-class target.
+• Optional Selector: SelectPercentile (mutual_info) at 90–98% (can be disabled when Poly(2) is enabled).
+• Observability: Step-wise logs (shapes, class balance), per-estimator timings, optional memory usage.
+• Colab-Ready: Minimal deps; top-level knobs for quick speed/accuracy trade-offs.
 
-## ✨ Key features
-| Module | What it does |
-|--------|--------------|
-| **/notebooks** | End-to-end Jupyter workflow: EDA → preprocessing → model training & evaluation |
-| **/src/data** | Cleaners, transformers, one-hot encoders, SMOTE balancing |
-| **/src/models** | • Stacking ensemble (RF + GBM + SVM + LogReg) <br>• RNN baseline for sequential data <br>• Optuna hyper-parameter search |
-| **predict.py** | CLI entry point – load a CSV or single JSON row and return predicted adiposity class |
-| **/reports** | Automatically generated confusion matrices, ROC curves, and SHAP plots |
+Installation
 
----
+Clone the repository
 
-## 🗂️ Project structure
-Adiposity-predictor/
-├── data/ # raw & interim datasets (git-ignored)
-├── notebooks/ # Jupyter notebooks (EDA, training, …)
-├── src/
-│ ├── data/ # data loading / cleaning / feature builders
-│ ├── models/ # model classes, training, evaluation
-│ └── utils/ # common helpers
-├── models/ # saved .pkl / .h5 weights (git-ignored; use DVC or Git-LFS)
-├── requirements.txt
-└── predict.py
-
-yaml
-Copy
-Edit
-
----
-
-## 📦 Installation
-```bash
-# 1) clone the repo
 git clone https://github.com/hasti0044/adiposity-predictor.git
 cd adiposity-predictor
 
-# 2) create a virtual environment (recommended)
+
+Create a virtual environment (recommended)
+
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+# Windows: .venv\Scripts\activate
+source .venv/bin/activate
 
-# 3) install dependencies
+
+Install dependencies
+
 pip install -r requirements.txt
-🚀 Quick start
-bash
-Copy
-Edit
-# train the stacking model with default settings
-python -m src.models.train --config configs/stack_default.yml
-
-# run inference on new data
-python predict.py --input samples/demo_row.json
-For a step-by-step walkthrough, open notebooks/01_full_pipeline.ipynb and run each cell.
-```
-
-📊 Results
-| Model               | Accuracy | Macro-F1 | Notes                                        |
-|---------------------|----------|----------|----------------------------------------------|
-| **Stacking Ensemble** | 0.967    | 0.964    | 10-fold CV, class-weighted, Optuna-tuned     |
-| **Random Forest**    | 0.943    | 0.939    | 300 trees                                   |
-| **Gradient Boosting**| 0.951    | 0.948    | learning_rate = 0.05                        |
-| **SVM (RBF)**        | 0.904    | 0.900    | y = 0.01, C = 10                            |
-| **RNN (LSTM)**       | 0.912    | 0.907    | 3 × 64-unit layers                          |
 
 
-Detailed metrics, ROC curves, and SHAP importance plots are in reports/.
+Minimal requirements
 
-📚 Dataset
-Primary: CDC Adult & Youth Health Surveys (840 rows × 16 cols)
+numpy
+pandas
+scikit-learn
+imbalanced-learn
+psutil   # optional, for memory logs
 
-Synthetic augmentation: 5 000 rows generated with CTGAN to reduce class imbalance
+Usage
 
-License: Public Domain / CC-0
-See data/README.md for acquisition scripts and preprocessing steps.
+Place the dataset at data/ObesityDataSet_raw_and_data_sinthetic.csv.
 
-⚙️ Configuration
-All hyper-parameters are YAML-driven.
-Edit any file in configs/ or override on the CLI, e.g.:
+(Optional) Adjust knobs at the top of apacs_stack.py:
 
-📝 Citation
+FAST_MODE = False → set True for faster, slightly lower-accuracy runs
 
-Once the paper is published, we will update the citation here. Thank you for your understanding!
+USE_SELECTOR = True → set False to remove feature selection (often best when Poly(2) is on)
 
-If you use this code or dataset, please cite:
+SMOTE: k_neighbors = 3 or 5
 
-```bibtex
-@inproceedings{Vakani2025Oadiposity,
-  title   = {Adiposity Level Prediction Using Machine Learning Stacking Ensembles},
-  author  = {Hasti Vakani, Mithil Mistry, Hardik Jayswal, et al.},
-  year    = {2025},
-  pages   = {Will be updated after publication},  # Add the specific page range once available
+ANN: hidden_layer_sizes = (320, 160), alpha = 5e-4
 
-}
-```
-🤝 Contributing
+GB: n_estimators = 1000, learning_rate = 0.05
+
+Train & evaluate
+
+python apacs_stack.py
+
+
+The script prints: dataset stats, stage-by-stage shapes, class balance, per-model timings, hold-out accuracy, and (optionally) 3-fold CV results.
+
+(Optional) Tiny sweep
+The script can run a compact set of high-impact configs (selector on/off, SMOTE k, ANN size, GB trees/LR) → reports 3-fold CV on the training split, then refits the best and prints the hold-out score.
+
+Dataset
+
+Primary: UCI Obesity Levels — ObesityDataSet_raw_and_data_sinthetic.csv
+Target classes (7):
+Insufficient_Weight, Normal_Weight, Overweight_Level_I, Overweight_Level_II, Obesity_Type_I, Obesity_Type_II, Obesity_Type_III
+
+Default split (Stratified, 85/15, seed=42):
+
+Dataset	Classes	Train Samples	Test Samples
+UCI Obesity Levels	7	1,794	317
+
+Feature engineering (built by the script):
+• BMI = Weight / Height²
+• high_caloric = (FAVC == "yes") & (FCVC > 2)
+• active_lifestyle = (FAF > 2) & (TUE < 2)
+
+Model Architecture
+
+Workflow
+
+Data Preprocessing
+o Numerics: impute (median) → PolynomialFeatures(2) → StandardScaler
+o Categoricals: impute (most frequent) → One-Hot (dense)
+o Optional: SelectPercentile (mutual_info) (e.g., 90–98%)
+
+Class Balancing
+o SMOTE (k=3 or 5) applied after feature selection
+
+Hybrid Stacking (APACS)
+o Base learners: MLPClassifier (ANN), LogisticRegression, GradientBoostingClassifier
+o Meta-learner: LogisticRegression with passthrough=True
+o Inner CV: cv=3–5 inside the stack to create robust meta-features
+
+Logging
+o Stage logs: After PREP/ENCODE, After SELECT, After SMOTE (shapes + class balance)
+o Per-estimator timings (fit/predict), optional RAM via psutil
+
+Results
+
+• 3-fold CV (training split): up to 98.16% ± 0.24 with
+use_selector = False, SMOTE(k=5), ANN(320,160, α=5e-4), GB(1000, lr=0.05)
+• Hold-out (15% test split): typically ≥ 97.16%, depending on split/seed
+
+Report the hold-out accuracy as your final result; CV is used for model selection.
+
+Future Improvements
+
+• Probability calibration (Platt/Isotonic) for better thresholds
+• Compare BorderlineSMOTE/SMOTE-NC variants
+• Add extra base learners (e.g., XGBoost/LightGBM) with the same LR meta
+• Explainability: SHAP or permutation importance
+• Package a small CLI/REST for batch inference
+
+Contributing
+
 Pull requests are welcome!
+• Keep runs reproducible (random_state set)
+• Include a brief report (accuracy, macro-F1, confusion matrix)
+• Lint before committing
 
-Fork the repo & create a feature branch
+License
 
-black / ruff lint before committing
+MIT License — see LICENSE.
 
-Open a PR and fill out the template
+Acknowledgments
 
-📄 License
-This project is licensed under the MIT License – see LICENSE for details.
+• UCI Obesity Levels dataset authors
+• scikit-learn & imbalanced-learn communities
 
-🙋‍♀️ Contact
-Hasti Vakani – hasti.vakani9104@gmail.com
+Contact
 
-Enjoy exploring, reproducing, or extending the adiposity-predictor! 🎉
+Hasti Vakani — hasti.vakani9104@gmail.com
+(Feel free to open issues/PRs in this repo as well.)

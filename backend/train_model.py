@@ -1,82 +1,178 @@
-# train_model.py
+# === APACS (ANN + LR + GB -> LR meta) — tiny sweep to beat 97.16 ===
+import time, warnings
+warnings.filterwarnings("ignore")
 
-import numpy as np
-import pandas as pd
-from sklearn.model_selection import train_test_split, cross_val_score
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
+import numpy as np, pandas as pd
+from collections import Counter
+
+from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
+from sklearn.preprocessing import StandardScaler, OneHotEncoder, PolynomialFeatures
 from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.svm import SVC
-from sklearn.neural_network import MLPClassifier
-from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-from sklearn.ensemble import StackingClassifier
-import joblib
+from sklearn.feature_selection import SelectPercentile, mutual_info_classif
+from sklearn.base import BaseEstimator, TransformerMixin
 
-# 1. Load the data
-data = pd.read_csv('ObesityDataSet_raw_and_data_sinthetic.csv')
+from sklearn.neural_network import MLPClassifier
+from sklearn.ensemble import GradientBoostingClassifier, StackingClassifier
+from sklearn.linear_model import LogisticRegression
 
-# 2. Separate features and target
-X = data.drop('NObeyesdad', axis=1)
-y = data['NObeyesdad']
+from imblearn.over_sampling import SMOTE
+try:
+    from imblearn.over_sampling import BorderlineSMOTE 
+    HAS_BSMOTE = True
+except Exception:
+    HAS_BSMOTE = False
+from imblearn.pipeline import Pipeline as ImbPipeline
 
-# 3. Split the data
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+RANDOM_STATE = 42
+np.random.seed(RANDOM_STATE)
 
-# 4. Identify numeric and categorical columns
-numeric_features = X.select_dtypes(include=['int64', 'float64']).columns
-categorical_features = X.select_dtypes(include=['object']).columns
 
-# 5. Create a preprocessor
+print("[LOG] Loading CSV…")
+df = pd.read_csv("ObesityDataSet_raw_and_data_sinthetic.csv")
+
+
+df["BMI"] = df["Weight"] / (df["Height"] ** 2)
+df["high_caloric"] = (df["FAVC"] == "yes") & (df["FCVC"] > 2)
+df["active_lifestyle"] = (df["FAF"] > 2) & (df["TUE"] < 2)
+
+X = df.drop("NObeyesdad", axis=1)
+y = df["NObeyesdad"]
+print(f"[LOG] Data: {X.shape[0]} rows, {X.shape[1]} features; classes: {Counter(y)}")
+
+num_cols = X.select_dtypes(include=["number"]).columns.tolist()
+cat_cols = X.select_dtypes(exclude=["number"]).columns.tolist()
+print(f"[LOG] Numeric={len(num_cols)} | Categorical={len(cat_cols)}")
+
+
+
+num_pipe = Pipeline([
+    ("imputer", SimpleImputer(strategy="median")),
+    ("poly", PolynomialFeatures(degree=2, include_bias=False)),
+    ("scaler", StandardScaler()),
+])
+
+try:
+    ohe = OneHotEncoder(handle_unknown="ignore", sparse_output=False)  
+except TypeError:
+    ohe = OneHotEncoder(handle_unknown="ignore", sparse=False)       
+
+cat_pipe = Pipeline([
+    ("imputer", SimpleImputer(strategy="most_frequent")),
+    ("onehot", ohe),
+])
+
 preprocessor = ColumnTransformer(
-    transformers=[
-        ('num', StandardScaler(), numeric_features),
-        ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_features)
-    ]
+    transformers=[("num", num_pipe, num_cols), ("cat", cat_pipe, cat_cols)],
+    remainder="drop",
+    sparse_threshold=0.0
 )
 
-# 6. Define base models
-base_models = [
-    ('rf', RandomForestClassifier(n_estimators=300, random_state=42)),
-    ('gb', GradientBoostingClassifier(n_estimators=300, random_state=42)),
-    ('svm', SVC(probability=True, random_state=42)),
-    ('nn', MLPClassifier(hidden_layer_sizes=(100, 50), max_iter=1000, random_state=42))
+
+def make_pipeline(
+    ann_size=(320,160),
+    ann_alpha=5e-4,
+    gb_estimators=1000,
+    gb_lr=0.05,
+    use_selector=True,
+    selector_pct=98,
+    smote_k=3,
+    use_borderline=False,
+    cv_stack=5
+):
+    ann = MLPClassifier(
+        hidden_layer_sizes=ann_size,
+        activation="relu",
+        solver="adam",
+        learning_rate_init=1e-3,
+        alpha=ann_alpha,
+        early_stopping=True,
+        n_iter_no_change=20,
+        max_iter=1200,
+        random_state=RANDOM_STATE
+    )
+    lr_base = LogisticRegression(max_iter=5000, C=2.0, multi_class="auto", random_state=RANDOM_STATE)
+    gb = GradientBoostingClassifier(
+        n_estimators=gb_estimators,
+        learning_rate=gb_lr,
+        max_depth=3,
+        subsample=0.9,
+        random_state=RANDOM_STATE
+    )
+    meta = LogisticRegression(max_iter=6000, C=3.0, multi_class="auto", random_state=RANDOM_STATE)
+
+    stack = StackingClassifier(
+        estimators=[("ann", ann), ("lr", lr_base), ("gb", gb)],
+        final_estimator=meta,
+        passthrough=True,
+        cv=cv_stack,
+        n_jobs=-1
+    )
+
+    steps = [("prep", preprocessor)]
+    if use_selector:
+        steps += [("select", SelectPercentile(mutual_info_classif, percentile=selector_pct))]
+    smoter = (BorderlineSMOTE(k_neighbors=smote_k, random_state=RANDOM_STATE)
+              if (use_borderline and HAS_BSMOTE) else SMOTE(k_neighbors=smote_k, random_state=RANDOM_STATE))
+    steps += [("smote", smoter), ("stack", stack)]
+    return ImbPipeline(steps, verbose=False)
+
+X_tr, X_te, y_tr, y_te = train_test_split(
+    X, y, test_size=0.15, stratify=y, random_state=RANDOM_STATE
+)
+print(f"[LOG] Train={len(y_tr)} | Test={len(y_te)}")
+
+candidates = [
+   
+    dict(use_selector=True,  selector_pct=98, smote_k=3, ann_size=(320,160), ann_alpha=5e-4, gb_estimators=1000, gb_lr=0.05),
+
+  
+    dict(use_selector=False, smote_k=3, ann_size=(320,160), ann_alpha=5e-4, gb_estimators=1000, gb_lr=0.05),
+
+    dict(use_selector=True,  selector_pct=98, smote_k=3, ann_size=(256,128), ann_alpha=5e-4, gb_estimators=1000, gb_lr=0.05),
+
+
+    dict(use_selector=True,  selector_pct=98, smote_k=3, ann_size=(320,160), ann_alpha=5e-4, gb_estimators=1200, gb_lr=0.045),
+
+    dict(use_selector=True,  selector_pct=98, smote_k=5, ann_size=(320,160), ann_alpha=5e-4, gb_estimators=1000, gb_lr=0.05),
+
+    dict(use_selector=False, smote_k=5, ann_size=(320,160), ann_alpha=5e-4, gb_estimators=1000, gb_lr=0.05),
 ]
 
-# 7. Create a pipeline for each model
-base_pipelines = [(name, Pipeline([('prep', preprocessor), (name, model)])) 
-                  for name, model in base_models]
+if HAS_BSMOTE:
+    candidates += [
+        dict(use_selector=True,  selector_pct=98, smote_k=3, ann_size=(320,160), ann_alpha=5e-4, gb_estimators=1000, gb_lr=0.05, use_borderline=True),
+        dict(use_selector=False, smote_k=3, ann_size=(320,160), ann_alpha=5e-4, gb_estimators=1000, gb_lr=0.05, use_borderline=True),
+    ]
 
-# 8. Define the stacking model
-stacking_model = StackingClassifier(
-    estimators=base_pipelines,
-    final_estimator=LogisticRegression(),
-    cv=5
-)
+cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=RANDOM_STATE)
+results = []
 
-# 9. Fit the stacking model
-stacking_model.fit(X_train, y_train)
+print("\n[LOG] === Sweeping compact config set ===")
+for i, cfg in enumerate(candidates, 1):
+    t0 = time.time()
+    pipe = make_pipeline(**cfg, cv_stack=3)
+    scores = cross_val_score(pipe, X_tr, y_tr, cv=cv, scoring="accuracy", n_jobs=-1)
+    dt = time.time() - t0
+    mean, std = scores.mean(), scores.std()
+    print(f"[{i:02d}] {cfg} -> CV Acc: {mean:.4f} ± {std:.4f} (time {dt:.1f}s)")
+    results.append((mean, std, dt, cfg))
 
-# 10. Make predictions
-y_pred = stacking_model.predict(X_test)
+results.sort(key=lambda x: x[0], reverse=True)
+best_mean, best_std, best_time, best_cfg = results[0]
+print(f"\n[LOG] Best CV: {best_mean:.4f} ± {best_std:.4f} with cfg={best_cfg}")
 
-# 11. Calculate accuracy
-accuracy = accuracy_score(y_test, y_pred)
-print(f"Stacking Model Accuracy: {accuracy:.4f}")
+best_pipe = make_pipeline(**best_cfg, cv_stack=5) 
+t0 = time.time()
+best_pipe.fit(X_tr, y_tr)
+print(f"[LOG] Fit(best) time: {time.time()-t0:.1f}s")
 
-# 12. Print classification report & confusion matrix
+y_pred = best_pipe.predict(X_te)
+acc = accuracy_score(y_te, y_pred)
+print(f"\n>>> HOLD-OUT Accuracy: {acc:.4f}")
 print("\nClassification Report:")
-print(classification_report(y_test, y_pred))
-
-print("\nConfusion Matrix:")
-print(confusion_matrix(y_test, y_pred))
-
-# 13. Perform cross-validation
-cv_scores = cross_val_score(stacking_model, X_train, y_train, cv=5)
-print(f"\nCross-validation Scores: {cv_scores}")
-print(f"Mean CV Score: {np.mean(cv_scores):.4f}")
-
-# 14. Save the trained model as model.pkl
-joblib.dump(stacking_model, 'model.pkl')
-print("\nModel saved as model.pkl")
+print(classification_report(y_te, y_pred, digits=4))
+print("Confusion Matrix:")
+print(confusion_matrix(y_te, y_pred))

@@ -1,8 +1,8 @@
-##Introduction
+## Introduction
 
 Conventional single-model approaches to adiposity classification often struggle with class imbalance and non-linear interactions across lifestyle variables. APACS (Adiposity Prediction via ANN-plus Ansamble Classifiers Stack) addresses these gaps with a stacking ensemble that blends Artificial Neural Networks (ANN), Logistic Regression (LR), and Gradient Boosting (GB). The pipeline adds dense one-hot encoding, PolynomialFeatures (degree = 2), standardization, optional mutual-information feature selection, and SMOTE class balancing. It’s Colab-friendly and includes detailed logs so you can see exactly what runs and how long each step takes.
 
-##Key Features
+## Key Features
 
 • Hybrid Stacking (APACS): Base learners = ANN, LR, GB → LR meta-learner with passthrough=True.
 • Robust Preprocessing: Dense One-Hot for categoricals; Poly(2) + StandardScaler for numerics.
@@ -11,7 +11,7 @@ Conventional single-model approaches to adiposity classification often struggle 
 • Observability: Step-wise logs (shapes, class balance), per-estimator timings, optional memory usage.
 • Colab-Ready: Minimal deps; top-level knobs for quick speed/accuracy trade-offs.
 
-##Installation
+## Installation
 ### 1) Clone the repository
 ```bash
 git clone https://github.com/hasti0044/adiposity-predictor.git
